@@ -8,7 +8,10 @@ public class PlayerController : MonoBehaviour
 
     [SerializeField] private float speed;
     [SerializeField] private float jumpSpeed;
-    [SerializeField] private float rotationSpeed = 10f; // NEW
+    [SerializeField] private float rotationSpeed = 10f;
+
+    // This will be the real camera that Cinemachine controls
+    [SerializeField] private Transform cameraTransform;
 
     private bool jumpTriggered;
 
@@ -18,16 +21,35 @@ public class PlayerController : MonoBehaviour
         _rigidbody = GetComponent<Rigidbody>();
         groundController = GetComponent<GroundController>();
 
+        if (cameraTransform == null && Camera.main != null)
+        {
+            cameraTransform = Camera.main.transform;
+        }
+
         playerInputController.OnJumpedBttonPressed += JumpButtonPressed;
     }
 
     private void FixedUpdate()
     {
-        Vector3 moveDirection = new Vector3(
-            playerInputController.MovementInputVector.x,
-            0,
-            playerInputController.MovementInputVector.y
-        );
+        Vector2 input = playerInputController.MovementInputVector;
+
+        Vector3 moveDirection;
+        if (cameraTransform != null)
+        {
+            Vector3 camForward = cameraTransform.forward;
+            Vector3 camRight = cameraTransform.right;
+
+            camForward.y = 0f;
+            camRight.y = 0f;
+            camForward.Normalize();
+            camRight.Normalize();
+
+            moveDirection = camForward * input.y + camRight * input.x;
+        }
+        else
+        {
+            moveDirection = new Vector3(input.x, 0f, input.y);
+        }
 
         Vector3 velocity = moveDirection * speed;
         velocity.y = _rigidbody.linearVelocity.y;
@@ -40,7 +62,6 @@ public class PlayerController : MonoBehaviour
 
         _rigidbody.linearVelocity = velocity;
 
-        // ✅ Rotate player toward movement direction
         if (moveDirection.sqrMagnitude > 0.01f)
         {
             Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
