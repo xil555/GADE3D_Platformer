@@ -1,7 +1,19 @@
 ﻿using UnityEngine;
-
+using TMPro;
+using UnityEngine.UI;
+using System.Collections;
 public class PlayerController : MonoBehaviour
 {
+    public Slider healthBar;
+    public TMP_Text healthText;
+    public int health = 100;
+    public int maxHealth = 0;
+    public AudioSource audioSource;
+    public AudioClip healthPickupSound;
+    public AudioClip damageSound;
+    public AudioClip gemSound;
+
+
     private PlayerInputController playerInputController;
     private GroundController groundController;
     private Rigidbody _rigidbody;
@@ -15,6 +27,17 @@ public class PlayerController : MonoBehaviour
 
     private bool jumpTriggered;
 
+    private void Start()
+    {
+ maxHealth = health;
+    }
+
+    private void Update()
+    {
+        healthText.text = health + " / " + maxHealth;
+        healthBar.value = (float)health/(float)maxHealth;
+
+    }
     private void Awake()
     {
         playerInputController = GetComponent<PlayerInputController>();
@@ -78,4 +101,41 @@ public class PlayerController : MonoBehaviour
             jumpTriggered = true;
         }
     }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.gameObject.tag == "Gems")
+        {
+            audioSource.PlayOneShot(gemSound);
+        }
+        if (other.gameObject.tag == "Damage")
+        {
+            health = health - 15;
+            audioSource.PlayOneShot(damageSound);
+        }
+         if (other.gameObject.tag == "HealthPickUp")
+         {
+            if(health < 100)
+            {
+                health = health + 25;
+                health = Mathf.Min(health, 100);
+
+                other.gameObject.SetActive(false);
+                audioSource.PlayOneShot(healthPickupSound);
+                StartCoroutine(RespawnPickup(other.gameObject, 5f));
+            }
+           
+        }
+    }
+    IEnumerator RespawnPickup(GameObject pickup, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        pickup.SetActive(true);
+    }
+    public void AddHealth(int addHealth)
+    {
+        health += addHealth;
+    }
+
+   
 }
