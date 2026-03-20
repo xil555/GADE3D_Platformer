@@ -111,7 +111,15 @@ public class PlayerController : MonoBehaviour
         if (other.gameObject.tag == "Damage")
         {
             health = health - 15;
-            audioSource.PlayOneShot(damageSound);
+            if (health <= 0)
+            {
+                health = Mathf.Max(health, 0);
+               // other.gameObject.SetActive(false);
+                audioSource.PlayOneShot(damageSound);
+               
+            }
+           
+         
         }
          if (other.gameObject.tag == "HealthPickUp")
          {
