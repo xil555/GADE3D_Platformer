@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: -2677463455875112337}
   - component: {fileID: -4690039985979728476}
   - component: {fileID: 6812368854006520615}
+  - component: {fileID: 5887695906778843614}
   m_Layer: 0
   m_Name: Gem
   m_TagString: Gems
@@ -140,3 +141,15 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.42504942, y: 0.46349773, z: 0.4908048}
   m_Center: {x: 0, y: -0.05384852, z: 0.0000033676624}
+--- !u!114 &5887695906778843614
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3035225317270281999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92f258f38c3d0e64f9548b53fb04d947, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InventoryUI

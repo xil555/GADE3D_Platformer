@@ -1,72 +1,103 @@
-﻿using UnityEngine;
+﻿using System.Collections;
 using TMPro;
+using UnityEngine;
 using UnityEngine.UI;
-using System.Collections;
+
 public class PlayerController : MonoBehaviour
 {
+    [Header("Health")]
     public Slider healthBar;
     public TMP_Text healthText;
     public int health = 100;
-    public int maxHealth = 0;
+    public int maxHealth = 100;
+
+    [Header("Lives")]
+    public int maxLives = 3;
+    public int lives = 3;
+
+    [Header("Audio")]
     public AudioSource audioSource;
     public AudioClip healthPickupSound;
     public AudioClip damageSound;
+    public AudioClip deathSound;
     public AudioClip gemSound;
 
+    [Header("Spawn")]
+    public Transform startPoint;
+    [SerializeField] private ResetTrigger resetTrigger;
+
+    [Header("Movement")]
+    [SerializeField] private float speed = 5f;
+    [SerializeField] private float jumpSpeed = 8f;
+    [SerializeField] private float rotationSpeed = 10f;
+    [SerializeField] private Transform cameraTransform;
 
     private PlayerInputController playerInputController;
     private GroundController groundController;
-    private Rigidbody _rigidbody;
-
-    [SerializeField] private float speed;
-    [SerializeField] private float jumpSpeed;
-    [SerializeField] private float rotationSpeed = 10f;
-
-    // This will be the real camera that Cinemachine controls
-    [SerializeField] private Transform cameraTransform;
-
+    private Rigidbody rb;
     private bool jumpTriggered;
+    private bool isDying;
 
-    private void Start()
-    {
- maxHealth = health;
-    }
-
-    private void Update()
-    {
-        healthText.text = health + " / " + maxHealth;
-        healthBar.value = (float)health/(float)maxHealth;
-
-    }
+    private MyStack<CheckpointData> checkpointStack = new MyStack<CheckpointData>();
     private void Awake()
     {
         playerInputController = GetComponent<PlayerInputController>();
-        _rigidbody = GetComponent<Rigidbody>();
         groundController = GetComponent<GroundController>();
+        rb = GetComponent<Rigidbody>();
 
         if (cameraTransform == null && Camera.main != null)
         {
             cameraTransform = Camera.main.transform;
         }
 
-        playerInputController.OnJumpedBttonPressed += JumpButtonPressed;
+        if (playerInputController != null)
+        {
+            playerInputController.OnJumpedBttonPressed += JumpButtonPressed;
+        }
+    }
+
+    private void Start()
+    {
+        maxHealth = health;
+        lives = maxLives;
+
+        if (resetTrigger != null && startPoint != null)
+        {
+            resetTrigger.SetSpawnPoint(startPoint.position);
+        }
+    }
+
+    private void Update()
+    {
+        if (healthText != null)
+        {
+            healthText.text = health + " / " + maxHealth;
+        }
+
+        if (healthBar != null && maxHealth > 0)
+        {
+            healthBar.value = (float)health / maxHealth;
+        }
     }
 
     private void FixedUpdate()
     {
-        Vector2 input = playerInputController.MovementInputVector;
+        if (playerInputController == null || rb == null)
+        {
+            return;
+        }
 
+        Vector2 input = playerInputController.MovementInputVector;
         Vector3 moveDirection;
+
         if (cameraTransform != null)
         {
             Vector3 camForward = cameraTransform.forward;
             Vector3 camRight = cameraTransform.right;
-
             camForward.y = 0f;
             camRight.y = 0f;
             camForward.Normalize();
             camRight.Normalize();
-
             moveDirection = camForward * input.y + camRight * input.x;
         }
         else
@@ -75,7 +106,7 @@ public class PlayerController : MonoBehaviour
         }
 
         Vector3 velocity = moveDirection * speed;
-        velocity.y = _rigidbody.linearVelocity.y;
+        velocity.y = rb.linearVelocity.y;
 
         if (jumpTriggered)
         {
@@ -83,20 +114,30 @@ public class PlayerController : MonoBehaviour
             jumpTriggered = false;
         }
 
-        _rigidbody.linearVelocity = velocity;
+        rb.linearVelocity = velocity;
 
         if (moveDirection.sqrMagnitude > 0.01f)
         {
             Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
-            _rigidbody.MoveRotation(
-                Quaternion.Slerp(_rigidbody.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime)
-            );
+            rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime));
         }
     }
+    public void SaveCheckpoint(Vector3 newPosition)
+    {
+        if (!checkpointStack.IsEmpty())
+        {
+            checkpointStack.Pop();
 
+            checkpointStack.Push(new CheckpointData(newPosition, lives));
+        }
+        if (resetTrigger != null)
+        {
+            resetTrigger.SetSpawnPoint(newPosition);
+        }
+    }
     private void JumpButtonPressed()
     {
-        if (groundController.IsGrounded)
+        if (groundController != null && groundController.IsGrounded)
         {
             jumpTriggered = true;
         }
@@ -104,46 +145,144 @@ public class PlayerController : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.gameObject.tag == "Gems")
+        if (other.CompareTag("Gems"))
         {
-            audioSource.PlayOneShot(gemSound);
-        }
-        if (other.gameObject.tag == "Damage")
-        {
-            health = health - 15;
-            if (health <= 0)
+            if (audioSource != null && gemSound != null)
             {
-                health = Mathf.Max(health, 0);
-               // other.gameObject.SetActive(false);
-                audioSource.PlayOneShot(damageSound);
-               
+                audioSource.PlayOneShot(gemSound);
             }
-           
-         
+            return;
         }
-         if (other.gameObject.tag == "HealthPickUp")
-         {
-            if(health < 100)
+
+        if (other.CompareTag("Death"))
+        {
+            if (audioSource != null && deathSound != null)
             {
-                health = health + 25;
-                health = Mathf.Min(health, 100);
+                audioSource.PlayOneShot(deathSound);
+            }
+
+            KillPlayer();
+            return;
+        }
+
+        if (other.CompareTag("Damage"))
+        {
+            TakeDamage(15);
+            return;
+        }
+
+        if (other.CompareTag("HealthPickUp"))
+        {
+            if (health < maxHealth)
+            {
+                health += 25;
+                health = Mathf.Min(health, maxHealth);
 
                 other.gameObject.SetActive(false);
-                audioSource.PlayOneShot(healthPickupSound);
+
+                if (audioSource != null && healthPickupSound != null)
+                {
+                    audioSource.PlayOneShot(healthPickupSound);
+                }
+
                 StartCoroutine(RespawnPickup(other.gameObject, 5f));
             }
-           
         }
     }
-    IEnumerator RespawnPickup(GameObject pickup, float delay)
+
+    public void TakeDamage(int amount)
+    {
+        if (isDying)
+        {
+            return;
+        }
+
+        health -= amount;
+
+        if (audioSource != null && damageSound != null)
+        {
+            audioSource.PlayOneShot(damageSound);
+        }
+
+        if (health <= 0)
+        {
+            health = 0;
+            KillPlayer();
+        }
+    }
+
+    private void KillPlayer()
+    {
+        if (isDying)
+        {
+            return;
+        }
+
+        isDying = true;
+        lives--;
+
+        if (lives > 0)
+        {
+            RespawnAtCurrentCheckpoint();
+        }
+        else
+        {
+            FullResetToStart();
+        }
+
+        health = maxHealth;
+        isDying = false;
+    }
+
+    private void RespawnAtCurrentCheckpoint()
+    {
+        if (resetTrigger != null)
+        {
+            resetTrigger.RespawnPlayer(gameObject);
+        }
+        else
+        {
+            transform.position = startPoint != null ? startPoint.position : transform.position;
+        }
+    }
+
+    private void FullResetToStart()
+    {
+        lives = maxLives;
+
+        if (startPoint != null && resetTrigger != null)
+        {
+            resetTrigger.SetSpawnPoint(startPoint.position);
+            resetTrigger.RespawnPlayer(gameObject);
+        }
+        else if (startPoint != null)
+        {
+            transform.position = startPoint.position;
+        }
+
+        ResetGemCount();
+    }
+
+    private void ResetGemCount()
+    {
+        Coins.RestoreAllPickups();
+
+        PlayerInventory inventory = GetComponent<PlayerInventory>();
+        if (inventory != null)
+        {
+            inventory.ResetCoins();
+        }
+    }
+
+    private IEnumerator RespawnPickup(GameObject pickup, float delay)
     {
         yield return new WaitForSeconds(delay);
         pickup.SetActive(true);
     }
+
     public void AddHealth(int addHealth)
     {
         health += addHealth;
+        health = Mathf.Clamp(health, 0, maxHealth);
     }
-
-   
 }
