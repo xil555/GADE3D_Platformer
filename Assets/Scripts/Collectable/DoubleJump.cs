@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class DoubleJump : MonoBehaviour
 {
-    public float jumpForce = 15f; // Strength of the boost
+    public float jumpForce = 15f; 
 
     private void OnTriggerEnter(Collider other)
     {
@@ -15,7 +15,9 @@ public class DoubleJump : MonoBehaviour
                 rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpForce, rb.linearVelocity.z);
             }
 
-            Destroy(gameObject); // Makes the jump pad disappear
+            Destroy(gameObject); 
         }
     }
+
+
 }
